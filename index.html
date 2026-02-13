@@ -1,1 +1,587 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cancel Tool - Betting Data Extraction</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #1a1a2e;
+      color: #e0e0e0;
+      padding: 20px;
+      min-height: 100vh;
+    }
+    h1 {
+      text-align: center;
+      color: #00d4ff;
+      margin-bottom: 20px;
+      font-size: 1.5rem;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
 
+    /* Input Section */
+    .input-section {
+      background: #16213e;
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 20px;
+      border: 1px solid #0f3460;
+    }
+    .input-section label {
+      display: block;
+      margin-bottom: 8px;
+      color: #00d4ff;
+      font-weight: 600;
+    }
+    textarea {
+      width: 100%;
+      height: 200px;
+      background: #0a0a1a;
+      color: #e0e0e0;
+      border: 1px solid #0f3460;
+      border-radius: 6px;
+      padding: 12px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      resize: vertical;
+    }
+    textarea:focus { outline: none; border-color: #00d4ff; }
+
+    .btn-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    button {
+      padding: 10px 24px;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    button:active { transform: scale(0.97); }
+    .btn-extract {
+      background: #00d4ff;
+      color: #1a1a2e;
+    }
+    .btn-extract:hover { background: #00b8d9; }
+    .btn-copy {
+      background: #e94560;
+      color: #fff;
+    }
+    .btn-copy:hover { background: #c73e54; }
+    .btn-copy-note {
+      background: #f5a623;
+      color: #1a1a2e;
+    }
+    .btn-copy-note:hover { background: #d4901e; }
+    .btn-clear {
+      background: #444;
+      color: #e0e0e0;
+    }
+    .btn-clear:hover { background: #555; }
+
+    /* Result Section */
+    .result-section {
+      background: #16213e;
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 20px;
+      border: 1px solid #0f3460;
+      display: none;
+    }
+    .result-section.active { display: block; }
+    .section-title {
+      color: #00d4ff;
+      font-weight: 600;
+      margin-bottom: 12px;
+      font-size: 1.1rem;
+    }
+
+    /* Data Table */
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 16px;
+      font-size: 13px;
+    }
+    .data-table th {
+      background: #0f3460;
+      color: #00d4ff;
+      padding: 10px 8px;
+      text-align: left;
+      white-space: nowrap;
+    }
+    .data-table td {
+      padding: 10px 8px;
+      border-bottom: 1px solid #1a2a4a;
+    }
+    .data-table tr:hover td { background: #1a2a4a; }
+    .data-table .overflow-cell {
+      max-width: 250px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .tag-prematch {
+      background: #2e7d32;
+      color: #fff;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+    .tag-live {
+      background: #e94560;
+      color: #fff;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+
+    /* Note Section */
+    .note-section {
+      background: #0a0a1a;
+      border: 1px solid #0f3460;
+      border-radius: 8px;
+      padding: 16px;
+      margin-top: 16px;
+    }
+    .note-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+    .note-row:last-child { margin-bottom: 0; }
+    .note-row label {
+      color: #aaa;
+      min-width: 100px;
+      font-size: 13px;
+    }
+    .note-row input[type="time"] {
+      background: #16213e;
+      color: #e0e0e0;
+      border: 1px solid #0f3460;
+      border-radius: 4px;
+      padding: 6px 10px;
+      font-size: 14px;
+    }
+    .note-row input[type="time"]:focus { outline: none; border-color: #00d4ff; }
+    .note-row input[type="text"] {
+      background: #16213e;
+      color: #e0e0e0;
+      border: 1px solid #0f3460;
+      border-radius: 4px;
+      padding: 6px 10px;
+      font-size: 14px;
+      flex: 1;
+      min-width: 200px;
+    }
+    .note-row input[type="text"]:focus { outline: none; border-color: #00d4ff; }
+    select {
+      background: #16213e;
+      color: #e0e0e0;
+      border: 1px solid #0f3460;
+      border-radius: 4px;
+      padding: 6px 10px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    select:focus { outline: none; border-color: #00d4ff; }
+
+    .done-time {
+      color: #4caf50;
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    /* Preview */
+    .preview-box {
+      background: #0a0a1a;
+      border: 1px dashed #0f3460;
+      border-radius: 6px;
+      padding: 12px;
+      margin-top: 12px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      white-space: pre-wrap;
+      word-break: break-all;
+      color: #ccc;
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: #4caf50;
+      color: #fff;
+      padding: 12px 28px;
+      border-radius: 8px;
+      font-weight: 600;
+      opacity: 0;
+      transition: all 0.3s;
+      z-index: 999;
+    }
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+
+    /* Skipped info */
+    .skipped-info {
+      margin-top: 12px;
+      padding: 10px;
+      background: #1a2a4a;
+      border-radius: 6px;
+      font-size: 13px;
+      color: #aaa;
+    }
+    .skipped-info strong { color: #f5a623; }
+
+    /* Ticket info bar */
+    .ticket-bar {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+      padding: 10px 14px;
+      background: #0f3460;
+      border-radius: 6px;
+      font-size: 13px;
+    }
+    .ticket-bar span { color: #aaa; }
+    .ticket-bar strong { color: #00d4ff; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h1>Cancel Tool - Betting Data Extraction</h1>
+
+  <!-- Input -->
+  <div class="input-section">
+    <label for="jsonInput">Paste JSON Data</label>
+    <textarea id="jsonInput" placeholder="Paste the full ticket JSON here..."></textarea>
+    <div class="btn-row">
+      <button class="btn-extract" onclick="extractData()">Extract</button>
+      <button class="btn-clear" onclick="clearAll()">Clear</button>
+    </div>
+  </div>
+
+  <!-- Result -->
+  <div class="result-section" id="resultSection">
+    <!-- Ticket Info -->
+    <div class="ticket-bar" id="ticketBar"></div>
+
+    <div class="section-title">Cancelled Selections (Status = 4)</div>
+    <div style="overflow-x: auto;">
+      <table class="data-table" id="dataTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>SportName</th>
+            <th>LeagueName</th>
+            <th>Prematch/Live</th>
+            <th>StartEventDate (UTC+8)</th>
+            <th>EventName</th>
+          </tr>
+        </thead>
+        <tbody id="dataBody"></tbody>
+      </table>
+    </div>
+
+    <div class="skipped-info" id="skippedInfo"></div>
+
+    <div class="btn-row" style="margin-top: 12px;">
+      <button class="btn-copy" onclick="copyTableData()">Copy Table Data</button>
+    </div>
+    <div class="preview-box" id="tablePreview"></div>
+
+    <!-- Note Section -->
+    <div class="note-section">
+      <div class="section-title" style="margin-bottom: 14px;">Note</div>
+      <div class="note-row">
+        <label>Request Time:</label>
+        <input type="time" id="requestTime" step="60">
+        <span style="color:#aaa;">pls cancel</span>
+      </div>
+      <div class="note-row">
+        <label>Reason:</label>
+        <select id="reasonSelect" onchange="handleReasonChange()">
+          <option value="postponed match, 24 hours">postponed match, 24 hours</option>
+          <option value="no info over 3 hours">no info over 3 hours</option>
+          <option value="__custom__">Custom (self-input)</option>
+        </select>
+        <input type="text" id="customReason" placeholder="Enter custom reason..." style="display:none;">
+      </div>
+      <div class="note-row">
+        <label>Done Time:</label>
+        <span class="done-time" id="doneTimeDisplay">--:--</span>
+        <span style="color:#aaa;">done</span>
+      </div>
+      <div class="btn-row" style="margin-top: 14px;">
+        <button class="btn-copy-note" onclick="copyNoteData()">Copy Note</button>
+      </div>
+      <div class="preview-box" id="notePreview" style="margin-top: 8px;"></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  let extractedRows = [];
+  let doneTimeStr = '';
+
+  function extractData() {
+    const raw = document.getElementById('jsonInput').value.trim();
+    if (!raw) {
+      showToast('Please paste JSON data first', '#e94560');
+      return;
+    }
+
+    let data;
+    try {
+      data = JSON.parse(raw);
+    } catch (e) {
+      showToast('JSON parse error: ' + e.message, '#e94560');
+      return;
+    }
+
+    const selections = data.Selections || [];
+    const cancelled = selections.filter(s => s.SelectionStatus === 4);
+
+    if (cancelled.length === 0) {
+      showToast('No selections with Status = 4 found', '#f5a623');
+      return;
+    }
+
+    // Extract done time from SettlementHistory or UpdateDate
+    doneTimeStr = extractDoneTime(data);
+
+    // Build ticket info bar
+    const ticketId = data.SQLTicketId || data.Bets?.[0]?.TicketId || 'N/A';
+    const betType = data.Bets?.[0]?.Name || 'N/A';
+    const comboSize = data.Bets?.[0]?.ComboSize || '-';
+    const totalSelections = selections.length;
+    const cancelledCount = cancelled.length;
+
+    document.getElementById('ticketBar').innerHTML =
+      `<span>Ticket ID: <strong>${ticketId}</strong></span>` +
+      `<span>Type: <strong>${betType}</strong></span>` +
+      `<span>Selections: <strong>${cancelledCount} cancelled / ${totalSelections} total</strong></span>`;
+
+    // Build table rows
+    extractedRows = [];
+    const tbody = document.getElementById('dataBody');
+    tbody.innerHTML = '';
+
+    cancelled.forEach((sel, idx) => {
+      const sport = sel.SportName || '';
+      const league = sel.LeagueName || '';
+      const prematchLive = sel.IsLive ? 'Live' : 'Prematch';
+      const startDate = convertToUTC8(sel.StartEventDate);
+      const eventName = sel.EventName || '';
+
+      extractedRows.push({ sport, league, prematchLive, startDate, eventName });
+
+      const tagClass = sel.IsLive ? 'tag-live' : 'tag-prematch';
+      const tr = document.createElement('tr');
+      tr.innerHTML =
+        `<td>${idx + 1}</td>` +
+        `<td>${sport}</td>` +
+        `<td class="overflow-cell" title="${league}">${league}</td>` +
+        `<td><span class="${tagClass}">${prematchLive}</span></td>` +
+        `<td>${startDate}</td>` +
+        `<td class="overflow-cell" title="${eventName}">${eventName}</td>`;
+      tbody.appendChild(tr);
+    });
+
+    // Skipped info
+    const skipped = selections.filter(s => s.SelectionStatus !== 4);
+    const skippedEl = document.getElementById('skippedInfo');
+    if (skipped.length > 0) {
+      skippedEl.innerHTML = '<strong>Skipped (Status != 4):</strong> ' +
+        skipped.map(s => `${s.EventName} (Status: ${s.SelectionStatus})`).join(', ');
+      skippedEl.style.display = 'block';
+    } else {
+      skippedEl.style.display = 'none';
+    }
+
+    // Set done time display
+    document.getElementById('doneTimeDisplay').textContent = doneTimeStr || '--:--';
+
+    // Update previews
+    updateTablePreview();
+    updateNotePreview();
+
+    // Show result section
+    document.getElementById('resultSection').classList.add('active');
+    showToast(`Extracted ${cancelled.length} cancelled selection(s)`, '#4caf50');
+  }
+
+  function extractDoneTime(data) {
+    // Try SettlementHistory first
+    if (data.SettlementHistory && data.SettlementHistory.length > 0) {
+      const last = data.SettlementHistory[data.SettlementHistory.length - 1];
+      if (last.DateUpdated) {
+        return formatTimeUTC8(last.DateUpdated);
+      }
+    }
+    // Fallback to UpdateDate
+    if (data.UpdateDate) {
+      return formatTimeUTC8(data.UpdateDate);
+    }
+    return '';
+  }
+
+  function convertToUTC8(dateStr) {
+    if (!dateStr) return '';
+    // Parse as UTC
+    let d;
+    if (dateStr.endsWith('Z')) {
+      d = new Date(dateStr);
+    } else {
+      // Treat as UTC if no timezone info
+      d = new Date(dateStr + 'Z');
+    }
+    // Add 8 hours
+    d = new Date(d.getTime() + 8 * 60 * 60 * 1000);
+    return formatDateTime(d);
+  }
+
+  function formatDateTime(d) {
+    const yyyy = d.getUTCFullYear();
+    const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(d.getUTCDate()).padStart(2, '0');
+    const hh = String(d.getUTCHours()).padStart(2, '0');
+    const mi = String(d.getUTCMinutes()).padStart(2, '0');
+    const ss = String(d.getUTCSeconds()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss}`;
+  }
+
+  function formatTimeUTC8(dateStr) {
+    if (!dateStr) return '';
+    let d;
+    if (dateStr.endsWith('Z')) {
+      d = new Date(dateStr);
+    } else {
+      d = new Date(dateStr + 'Z');
+    }
+    d = new Date(d.getTime() + 8 * 60 * 60 * 1000);
+    const hh = String(d.getUTCHours()).padStart(2, '0');
+    const mi = String(d.getUTCMinutes()).padStart(2, '0');
+    return `${hh}:${mi}`;
+  }
+
+  function getSelectedReason() {
+    const sel = document.getElementById('reasonSelect');
+    if (sel.value === '__custom__') {
+      return document.getElementById('customReason').value.trim();
+    }
+    return sel.value;
+  }
+
+  function handleReasonChange() {
+    const sel = document.getElementById('reasonSelect');
+    const customInput = document.getElementById('customReason');
+    if (sel.value === '__custom__') {
+      customInput.style.display = 'block';
+      customInput.focus();
+    } else {
+      customInput.style.display = 'none';
+    }
+    updateNotePreview();
+  }
+
+  function updateTablePreview() {
+    const lines = extractedRows.map(r =>
+      `${r.sport}\t${r.league}\t${r.prematchLive}\t${r.startDate}\t${r.eventName}`
+    );
+    document.getElementById('tablePreview').textContent = lines.join('\n');
+  }
+
+  function updateNotePreview() {
+    const requestTime = document.getElementById('requestTime').value || '__:__';
+    const reason = getSelectedReason() || '________________';
+    const done = doneTimeStr || '__:__';
+    const note = `${requestTime} pls cancel (${reason})\n${done} done`;
+    document.getElementById('notePreview').textContent = note;
+  }
+
+  function copyTableData() {
+    const lines = extractedRows.map(r =>
+      `${r.sport}\t${r.league}\t${r.prematchLive}\t${r.startDate}\t${r.eventName}`
+    );
+    const text = lines.join('\n');
+    copyToClipboard(text, 'Table data copied!');
+  }
+
+  function copyNoteData() {
+    const requestTime = document.getElementById('requestTime').value || '__:__';
+    const reason = getSelectedReason();
+    if (!reason) {
+      showToast('Please select or enter a reason', '#f5a623');
+      return;
+    }
+    const done = doneTimeStr || '__:__';
+    const note = `${requestTime} pls cancel (${reason})\n${done} done`;
+    copyToClipboard(note, 'Note copied!');
+  }
+
+  function copyToClipboard(text, msg) {
+    navigator.clipboard.writeText(text).then(() => {
+      showToast(msg || 'Copied!', '#4caf50');
+    }).catch(() => {
+      // Fallback
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      showToast(msg || 'Copied!', '#4caf50');
+    });
+  }
+
+  function clearAll() {
+    document.getElementById('jsonInput').value = '';
+    document.getElementById('resultSection').classList.remove('active');
+    document.getElementById('dataBody').innerHTML = '';
+    document.getElementById('tablePreview').textContent = '';
+    document.getElementById('notePreview').textContent = '';
+    document.getElementById('requestTime').value = '';
+    document.getElementById('reasonSelect').value = 'postponed match, 24 hours';
+    document.getElementById('customReason').style.display = 'none';
+    document.getElementById('customReason').value = '';
+    document.getElementById('doneTimeDisplay').textContent = '--:--';
+    extractedRows = [];
+    doneTimeStr = '';
+  }
+
+  function showToast(msg, color) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.style.background = color || '#4caf50';
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2000);
+  }
+
+  // Live preview updates
+  document.getElementById('requestTime').addEventListener('input', updateNotePreview);
+  document.getElementById('customReason').addEventListener('input', updateNotePreview);
+  document.getElementById('reasonSelect').addEventListener('change', updateNotePreview);
+</script>
+
+</body>
+</html>
