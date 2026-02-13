@@ -423,7 +423,9 @@
     doneTimeStr = extractDoneTime(data);
 
     // Build ticket info bar
-    const ticketId = data.SQLTicketId || data.Bets?.[0]?.TicketId || 'N/A';
+    // Extract TicketId from raw JSON string to avoid big number precision loss
+    const ticketIdMatch = raw.match(/"TicketId"\s*:\s*(\d+)/);
+    const ticketId = ticketIdMatch ? ticketIdMatch[1] : 'N/A';
     const betType = data.Bets?.[0]?.Name || 'N/A';
     const comboSize = data.Bets?.[0]?.ComboSize || '-';
     const totalSelections = selections.length;
