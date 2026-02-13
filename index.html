@@ -180,6 +180,54 @@
       min-width: 200px;
     }
     .note-row input[type="text"]:focus { outline: none; border-color: #00d4ff; }
+    .time-input {
+      background: #16213e;
+      color: #e0e0e0;
+      border: 1px solid #0f3460;
+      border-radius: 4px;
+      padding: 6px 8px;
+      font-size: 16px;
+      font-family: 'Courier New', monospace;
+      width: 42px;
+      text-align: center;
+      flex: none;
+      min-width: unset;
+    }
+    .time-input:focus { outline: none; border-color: #00d4ff; }
+    .btn-edit {
+      background: #0f3460;
+      color: #aaa;
+      padding: 4px 12px;
+      font-size: 12px;
+      border-radius: 4px;
+    }
+    .btn-edit:hover { background: #1a4a80; color: #e0e0e0; }
+    .edit-reasons-panel {
+      display: none;
+      background: #16213e;
+      border: 1px solid #0f3460;
+      border-radius: 6px;
+      padding: 12px;
+      margin-top: 8px;
+      margin-bottom: 8px;
+    }
+    .edit-reasons-panel.active { display: block; }
+    .edit-reason-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .edit-reason-row input {
+      background: #0a0a1a;
+      color: #e0e0e0;
+      border: 1px solid #0f3460;
+      border-radius: 4px;
+      padding: 6px 10px;
+      font-size: 13px;
+      flex: 1;
+    }
+    .edit-reason-row input:focus { outline: none; border-color: #00d4ff; }
     select {
       background: #16213e;
       color: #e0e0e0;
@@ -301,24 +349,32 @@
       <div class="section-title" style="margin-bottom: 14px;">Note</div>
       <div class="note-row">
         <label>Request Time:</label>
-        <select id="requestHour" onchange="updateAllPreview()">
-          <option value="">HH</option>
-        </select>
+        <input type="text" id="requestHour" class="time-input" maxlength="2" placeholder="HH" oninput="handleTimeInput(this, 'requestMinuteInput'); updateAllPreview();">
         <span style="color:#aaa; font-size:18px; font-weight:bold;">:</span>
-        <select id="requestMinute" onchange="updateAllPreview()">
-          <option value="">MM</option>
-        </select>
+        <input type="text" id="requestMinuteInput" class="time-input" maxlength="2" placeholder="MM" oninput="updateAllPreview();">
         <button class="btn-now" onclick="fillNowTime()">Now</button>
         <span style="color:#aaa;">pls cancel</span>
       </div>
       <div class="note-row">
         <label>Reason:</label>
         <select id="reasonSelect" onchange="handleReasonChange()">
-          <option value="postponed match, 24 hours">postponed match, 24 hours</option>
+          <option value="postponed match, 24 hours rule">postponed match, 24 hours rule</option>
           <option value="no info over 3 hours">no info over 3 hours</option>
           <option value="__custom__">Custom (self-input)</option>
         </select>
         <input type="text" id="customReason" placeholder="Enter custom reason..." style="display:none;">
+        <button class="btn-edit" onclick="toggleEditReasons()">Edit</button>
+      </div>
+      <div class="edit-reasons-panel" id="editReasonsPanel">
+        <div class="edit-reason-row">
+          <span style="color:#aaa; font-size:12px;">Option 1:</span>
+          <input type="text" id="editReason1" value="postponed match, 24 hours rule" oninput="syncReasonOptions()">
+        </div>
+        <div class="edit-reason-row">
+          <span style="color:#aaa; font-size:12px;">Option 2:</span>
+          <input type="text" id="editReason2" value="no info over 3 hours" oninput="syncReasonOptions()">
+        </div>
+        <button class="btn-edit" onclick="toggleEditReasons()" style="margin-top:8px;">Done</button>
       </div>
       <div class="note-row">
         <label>Done Time:</label>
@@ -480,39 +536,44 @@
     return `${hh}:${mi}`;
   }
 
-  // Populate hour/minute dropdowns
-  function initTimeDropdowns() {
-    const hourSel = document.getElementById('requestHour');
-    const minSel = document.getElementById('requestMinute');
-    for (let h = 0; h < 24; h++) {
-      const opt = document.createElement('option');
-      opt.value = String(h).padStart(2, '0');
-      opt.textContent = String(h).padStart(2, '0');
-      hourSel.appendChild(opt);
-    }
-    for (let m = 0; m < 60; m++) {
-      const opt = document.createElement('option');
-      opt.value = String(m).padStart(2, '0');
-      opt.textContent = String(m).padStart(2, '0');
-      minSel.appendChild(opt);
+  function handleTimeInput(el, nextId) {
+    // Only allow digits
+    el.value = el.value.replace(/\D/g, '');
+    // Auto-jump to next field when 2 digits entered
+    if (el.value.length === 2 && nextId) {
+      document.getElementById(nextId).focus();
     }
   }
-  initTimeDropdowns();
 
   function fillNowTime() {
     const now = new Date();
     // UTC+8
     const utc8 = new Date(now.getTime() + 8 * 60 * 60 * 1000);
     document.getElementById('requestHour').value = String(utc8.getUTCHours()).padStart(2, '0');
-    document.getElementById('requestMinute').value = String(utc8.getUTCMinutes()).padStart(2, '0');
+    document.getElementById('requestMinuteInput').value = String(utc8.getUTCMinutes()).padStart(2, '0');
     updateAllPreview();
   }
 
   function getRequestTime() {
-    const h = document.getElementById('requestHour').value;
-    const m = document.getElementById('requestMinute').value;
+    const h = document.getElementById('requestHour').value.trim();
+    const m = document.getElementById('requestMinuteInput').value.trim();
     if (!h || !m) return '__:__';
-    return `${h}:${m}`;
+    return `${h.padStart(2, '0')}:${m.padStart(2, '0')}`;
+  }
+
+  function toggleEditReasons() {
+    document.getElementById('editReasonsPanel').classList.toggle('active');
+  }
+
+  function syncReasonOptions() {
+    const sel = document.getElementById('reasonSelect');
+    const v1 = document.getElementById('editReason1').value.trim();
+    const v2 = document.getElementById('editReason2').value.trim();
+    sel.options[0].value = v1;
+    sel.options[0].textContent = v1;
+    sel.options[1].value = v2;
+    sel.options[1].textContent = v2;
+    updateAllPreview();
   }
 
   function getSelectedReason() {
@@ -585,8 +646,8 @@
     document.getElementById('dataBody').innerHTML = '';
     document.getElementById('allPreview').textContent = '';
     document.getElementById('requestHour').value = '';
-    document.getElementById('requestMinute').value = '';
-    document.getElementById('reasonSelect').value = 'postponed match, 24 hours';
+    document.getElementById('requestMinuteInput').value = '';
+    document.getElementById('reasonSelect').value = document.getElementById('reasonSelect').options[0].value;
     document.getElementById('customReason').style.display = 'none';
     document.getElementById('customReason').value = '';
     document.getElementById('doneTimeDisplay').textContent = '--:--';
