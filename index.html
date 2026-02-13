@@ -77,11 +77,14 @@
       color: #fff;
     }
     .btn-copy:hover { background: #c73e54; }
-    .btn-copy-note {
-      background: #f5a623;
-      color: #1a1a2e;
+    .btn-now {
+      background: #2e7d32;
+      color: #fff;
+      padding: 6px 14px;
+      font-size: 12px;
+      border-radius: 4px;
     }
-    .btn-copy-note:hover { background: #d4901e; }
+    .btn-now:hover { background: #388e3c; }
     .btn-clear {
       background: #444;
       color: #e0e0e0;
@@ -166,15 +169,6 @@
       min-width: 100px;
       font-size: 13px;
     }
-    .note-row input[type="time"] {
-      background: #16213e;
-      color: #e0e0e0;
-      border: 1px solid #0f3460;
-      border-radius: 4px;
-      padding: 6px 10px;
-      font-size: 14px;
-    }
-    .note-row input[type="time"]:focus { outline: none; border-color: #00d4ff; }
     .note-row input[type="text"] {
       background: #16213e;
       color: #e0e0e0;
@@ -302,17 +296,19 @@
 
     <div class="skipped-info" id="skippedInfo"></div>
 
-    <div class="btn-row" style="margin-top: 12px;">
-      <button class="btn-copy" onclick="copyTableData()">Copy Table Data</button>
-    </div>
-    <div class="preview-box" id="tablePreview"></div>
-
     <!-- Note Section -->
     <div class="note-section">
       <div class="section-title" style="margin-bottom: 14px;">Note</div>
       <div class="note-row">
         <label>Request Time:</label>
-        <input type="time" id="requestTime" step="60">
+        <select id="requestHour" onchange="updateAllPreview()">
+          <option value="">HH</option>
+        </select>
+        <span style="color:#aaa; font-size:18px; font-weight:bold;">:</span>
+        <select id="requestMinute" onchange="updateAllPreview()">
+          <option value="">MM</option>
+        </select>
+        <button class="btn-now" onclick="fillNowTime()">Now</button>
         <span style="color:#aaa;">pls cancel</span>
       </div>
       <div class="note-row">
@@ -329,11 +325,12 @@
         <span class="done-time" id="doneTimeDisplay">--:--</span>
         <span style="color:#aaa;">done</span>
       </div>
-      <div class="btn-row" style="margin-top: 14px;">
-        <button class="btn-copy-note" onclick="copyNoteData()">Copy Note</button>
-      </div>
-      <div class="preview-box" id="notePreview" style="margin-top: 8px;"></div>
     </div>
+
+    <div class="btn-row" style="margin-top: 16px;">
+      <button class="btn-copy" onclick="copyAll()">Copy All</button>
+    </div>
+    <div class="preview-box" id="allPreview"></div>
   </div>
 </div>
 
@@ -421,9 +418,8 @@
     // Set done time display
     document.getElementById('doneTimeDisplay').textContent = doneTimeStr || '--:--';
 
-    // Update previews
-    updateTablePreview();
-    updateNotePreview();
+    // Update preview
+    updateAllPreview();
 
     // Show result section
     document.getElementById('resultSection').classList.add('active');
@@ -484,6 +480,41 @@
     return `${hh}:${mi}`;
   }
 
+  // Populate hour/minute dropdowns
+  function initTimeDropdowns() {
+    const hourSel = document.getElementById('requestHour');
+    const minSel = document.getElementById('requestMinute');
+    for (let h = 0; h < 24; h++) {
+      const opt = document.createElement('option');
+      opt.value = String(h).padStart(2, '0');
+      opt.textContent = String(h).padStart(2, '0');
+      hourSel.appendChild(opt);
+    }
+    for (let m = 0; m < 60; m++) {
+      const opt = document.createElement('option');
+      opt.value = String(m).padStart(2, '0');
+      opt.textContent = String(m).padStart(2, '0');
+      minSel.appendChild(opt);
+    }
+  }
+  initTimeDropdowns();
+
+  function fillNowTime() {
+    const now = new Date();
+    // UTC+8
+    const utc8 = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+    document.getElementById('requestHour').value = String(utc8.getUTCHours()).padStart(2, '0');
+    document.getElementById('requestMinute').value = String(utc8.getUTCMinutes()).padStart(2, '0');
+    updateAllPreview();
+  }
+
+  function getRequestTime() {
+    const h = document.getElementById('requestHour').value;
+    const m = document.getElementById('requestMinute').value;
+    if (!h || !m) return '__:__';
+    return `${h}:${m}`;
+  }
+
   function getSelectedReason() {
     const sel = document.getElementById('reasonSelect');
     if (sel.value === '__custom__') {
@@ -501,42 +532,36 @@
     } else {
       customInput.style.display = 'none';
     }
-    updateNotePreview();
+    updateAllPreview();
   }
 
-  function updateTablePreview() {
-    const lines = extractedRows.map(r =>
+  function buildAllText() {
+    const tableLines = extractedRows.map(r =>
       `${r.sport}\t${r.league}\t${r.prematchLive}\t${r.startDate}\t${r.eventName}`
     );
-    document.getElementById('tablePreview').textContent = lines.join('\n');
-  }
-
-  function updateNotePreview() {
-    const requestTime = document.getElementById('requestTime').value || '__:__';
+    const requestTime = getRequestTime();
     const reason = getSelectedReason() || '________________';
     const done = doneTimeStr || '__:__';
     const note = `${requestTime} pls cancel (${reason})\n${done} done`;
-    document.getElementById('notePreview').textContent = note;
+    return tableLines.join('\n') + '\n\n' + note;
   }
 
-  function copyTableData() {
-    const lines = extractedRows.map(r =>
-      `${r.sport}\t${r.league}\t${r.prematchLive}\t${r.startDate}\t${r.eventName}`
-    );
-    const text = lines.join('\n');
-    copyToClipboard(text, 'Table data copied!');
+  function updateAllPreview() {
+    if (extractedRows.length === 0) return;
+    document.getElementById('allPreview').textContent = buildAllText();
   }
 
-  function copyNoteData() {
-    const requestTime = document.getElementById('requestTime').value || '__:__';
+  function copyAll() {
+    if (extractedRows.length === 0) {
+      showToast('No data to copy', '#e94560');
+      return;
+    }
     const reason = getSelectedReason();
     if (!reason) {
       showToast('Please select or enter a reason', '#f5a623');
       return;
     }
-    const done = doneTimeStr || '__:__';
-    const note = `${requestTime} pls cancel (${reason})\n${done} done`;
-    copyToClipboard(note, 'Note copied!');
+    copyToClipboard(buildAllText(), 'All data copied!');
   }
 
   function copyToClipboard(text, msg) {
@@ -558,9 +583,9 @@
     document.getElementById('jsonInput').value = '';
     document.getElementById('resultSection').classList.remove('active');
     document.getElementById('dataBody').innerHTML = '';
-    document.getElementById('tablePreview').textContent = '';
-    document.getElementById('notePreview').textContent = '';
-    document.getElementById('requestTime').value = '';
+    document.getElementById('allPreview').textContent = '';
+    document.getElementById('requestHour').value = '';
+    document.getElementById('requestMinute').value = '';
     document.getElementById('reasonSelect').value = 'postponed match, 24 hours';
     document.getElementById('customReason').style.display = 'none';
     document.getElementById('customReason').value = '';
@@ -578,9 +603,8 @@
   }
 
   // Live preview updates
-  document.getElementById('requestTime').addEventListener('input', updateNotePreview);
-  document.getElementById('customReason').addEventListener('input', updateNotePreview);
-  document.getElementById('reasonSelect').addEventListener('change', updateNotePreview);
+  document.getElementById('customReason').addEventListener('input', updateAllPreview);
+  document.getElementById('reasonSelect').addEventListener('change', updateAllPreview);
 </script>
 
 </body>
