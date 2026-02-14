@@ -279,6 +279,30 @@
       opacity: 1;
     }
 
+    /* Status tags */
+    .tag-status {
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .tag-status-0 { background: #0f3460; color: #00d4ff; }
+    .tag-status-1 { background: #2e7d32; color: #fff; }
+    .tag-status-2 { background: #f5a623; color: #1a1a2e; }
+    .tag-status-3 { background: #9c27b0; color: #fff; }
+    .tag-status-4 { background: #e94560; color: #fff; }
+
+    /* Checkbox */
+    .data-table input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+      accent-color: #00d4ff;
+    }
+    .data-table tr.row-checked td {
+      background: rgba(0, 212, 255, 0.08);
+    }
+
     /* Skipped info */
     .skipped-info {
       margin-top: 12px;
@@ -287,6 +311,7 @@
       border-radius: 6px;
       font-size: 13px;
       color: #aaa;
+      display: none;
     }
     .skipped-info strong { color: #f5a623; }
 
@@ -325,12 +350,14 @@
     <!-- Ticket Info -->
     <div class="ticket-bar" id="ticketBar"></div>
 
-    <div class="section-title">Cancelled Selections (Status = 4)</div>
+    <div class="section-title">All Selections</div>
     <div style="overflow-x: auto;">
       <table class="data-table" id="dataTable">
         <thead>
           <tr>
+            <th><input type="checkbox" id="selectAll" onchange="toggleSelectAll(this)"></th>
             <th>#</th>
+            <th>Status</th>
             <th>SportName</th>
             <th>LeagueName</th>
             <th>Prematch/Live</th>
@@ -341,8 +368,9 @@
         <tbody id="dataBody"></tbody>
       </table>
     </div>
-
-    <div class="skipped-info" id="skippedInfo"></div>
+    <div class="selection-actions" style="margin-top: 8px; display: flex; gap: 10px; font-size: 13px; color: #aaa;">
+      <span id="checkedCount">0 selected</span>
+    </div>
 
     <!-- Note Section -->
     <div class="note-section">
@@ -393,8 +421,22 @@
 <div class="toast" id="toast"></div>
 
 <script>
-  let extractedRows = [];
+  let allRows = [];       // All selections data
+  let checkedSet = new Set(); // Indices of checked rows (keyed by EventName+LeagueName for re-extract matching)
   let doneTimeStr = '';
+
+  const STATUS_LABELS = {
+    0: 'Pending',
+    1: 'Active',
+    2: 'Settled',
+    3: 'Void',
+    4: 'Cancelled'
+  };
+
+  function getRowKey(sel) {
+    // Unique key per selection for preserving checkbox state across re-extract
+    return `${sel.EventName || ''}||${sel.LeagueName || ''}||${sel.SportName || ''}`;
+  }
 
   function extractData() {
     const raw = document.getElementById('jsonInput').value.trim();
@@ -412,48 +454,60 @@
     }
 
     const selections = data.Selections || [];
-    const cancelled = selections.filter(s => s.SelectionStatus === 4);
-
-    if (cancelled.length === 0) {
-      showToast('No selections with Status = 4 found', '#f5a623');
+    if (selections.length === 0) {
+      showToast('No selections found', '#f5a623');
       return;
     }
 
-    // Extract done time from SettlementHistory or UpdateDate
+    // Preserve previous checked state (keyed by row key)
+    const prevCheckedKeys = new Set();
+    allRows.forEach((r, i) => {
+      if (checkedSet.has(i)) prevCheckedKeys.add(r.key);
+    });
+
+    // Extract done time
     doneTimeStr = extractDoneTime(data);
 
     // Build ticket info bar
-    // Extract TicketId from raw JSON string to avoid big number precision loss
     const ticketIdMatch = raw.match(/"TicketId"\s*:\s*(\d+)/);
     const ticketId = ticketIdMatch ? ticketIdMatch[1] : 'N/A';
     const betType = data.Bets?.[0]?.Name || 'N/A';
-    const comboSize = data.Bets?.[0]?.ComboSize || '-';
     const totalSelections = selections.length;
-    const cancelledCount = cancelled.length;
 
     document.getElementById('ticketBar').innerHTML =
       `<span>Ticket ID: <strong>${ticketId}</strong></span>` +
       `<span>Type: <strong>${betType}</strong></span>` +
-      `<span>Selections: <strong>${cancelledCount} cancelled / ${totalSelections} total</strong></span>`;
+      `<span>Total Selections: <strong>${totalSelections}</strong></span>`;
 
-    // Build table rows
-    extractedRows = [];
+    // Build table rows for ALL selections
+    allRows = [];
+    checkedSet = new Set();
     const tbody = document.getElementById('dataBody');
     tbody.innerHTML = '';
 
-    cancelled.forEach((sel, idx) => {
+    selections.forEach((sel, idx) => {
       const sport = sel.SportName || '';
       const league = sel.LeagueName || '';
       const prematchLive = sel.IsLive ? 'Live' : 'Prematch';
       const startDate = convertToUTC8(sel.StartEventDate);
       const eventName = sel.EventName || '';
+      const status = sel.SelectionStatus;
+      const key = getRowKey(sel);
 
-      extractedRows.push({ sport, league, prematchLive, startDate, eventName });
+      allRows.push({ sport, league, prematchLive, startDate, eventName, status, key });
+
+      // Restore checked state from previous extract
+      const shouldCheck = prevCheckedKeys.has(key);
+      if (shouldCheck) checkedSet.add(idx);
 
       const tagClass = sel.IsLive ? 'tag-live' : 'tag-prematch';
+      const statusLabel = STATUS_LABELS[status] !== undefined ? STATUS_LABELS[status] : `Status ${status}`;
       const tr = document.createElement('tr');
+      if (shouldCheck) tr.classList.add('row-checked');
       tr.innerHTML =
+        `<td><input type="checkbox" data-idx="${idx}" onchange="handleRowCheck(this)" ${shouldCheck ? 'checked' : ''}></td>` +
         `<td>${idx + 1}</td>` +
+        `<td><span class="tag-status tag-status-${status}">${statusLabel}</span></td>` +
         `<td>${sport}</td>` +
         `<td class="overflow-cell" title="${league}">${league}</td>` +
         `<td><span class="${tagClass}">${prematchLive}</span></td>` +
@@ -462,16 +516,9 @@
       tbody.appendChild(tr);
     });
 
-    // Skipped info
-    const skipped = selections.filter(s => s.SelectionStatus !== 4);
-    const skippedEl = document.getElementById('skippedInfo');
-    if (skipped.length > 0) {
-      skippedEl.innerHTML = '<strong>Skipped (Status != 4):</strong> ' +
-        skipped.map(s => `${s.EventName} (Status: ${s.SelectionStatus})`).join(', ');
-      skippedEl.style.display = 'block';
-    } else {
-      skippedEl.style.display = 'none';
-    }
+    // Update select-all checkbox state
+    updateSelectAllState();
+    updateCheckedCount();
 
     // Set done time display
     document.getElementById('doneTimeDisplay').textContent = doneTimeStr || '--:--';
@@ -481,18 +528,74 @@
 
     // Show result section
     document.getElementById('resultSection').classList.add('active');
-    showToast(`Extracted ${cancelled.length} cancelled selection(s)`, '#4caf50');
+    showToast(`Extracted ${totalSelections} selection(s)`, '#4caf50');
+  }
+
+  function handleRowCheck(cb) {
+    const idx = parseInt(cb.dataset.idx);
+    const tr = cb.closest('tr');
+    if (cb.checked) {
+      checkedSet.add(idx);
+      tr.classList.add('row-checked');
+    } else {
+      checkedSet.delete(idx);
+      tr.classList.remove('row-checked');
+    }
+    updateSelectAllState();
+    updateCheckedCount();
+    updateAllPreview();
+  }
+
+  function toggleSelectAll(cb) {
+    const checkboxes = document.querySelectorAll('#dataBody input[type="checkbox"]');
+    checkboxes.forEach(box => {
+      const idx = parseInt(box.dataset.idx);
+      const tr = box.closest('tr');
+      box.checked = cb.checked;
+      if (cb.checked) {
+        checkedSet.add(idx);
+        tr.classList.add('row-checked');
+      } else {
+        checkedSet.delete(idx);
+        tr.classList.remove('row-checked');
+      }
+    });
+    updateCheckedCount();
+    updateAllPreview();
+  }
+
+  function updateSelectAllState() {
+    const all = document.querySelectorAll('#dataBody input[type="checkbox"]');
+    const selectAllCb = document.getElementById('selectAll');
+    if (all.length === 0) {
+      selectAllCb.checked = false;
+      selectAllCb.indeterminate = false;
+      return;
+    }
+    const checkedCount = checkedSet.size;
+    if (checkedCount === 0) {
+      selectAllCb.checked = false;
+      selectAllCb.indeterminate = false;
+    } else if (checkedCount === all.length) {
+      selectAllCb.checked = true;
+      selectAllCb.indeterminate = false;
+    } else {
+      selectAllCb.checked = false;
+      selectAllCb.indeterminate = true;
+    }
+  }
+
+  function updateCheckedCount() {
+    document.getElementById('checkedCount').textContent = `${checkedSet.size} selected`;
   }
 
   function extractDoneTime(data) {
-    // Try SettlementHistory first
     if (data.SettlementHistory && data.SettlementHistory.length > 0) {
       const last = data.SettlementHistory[data.SettlementHistory.length - 1];
       if (last.DateUpdated) {
         return formatTimeUTC8(last.DateUpdated);
       }
     }
-    // Fallback to UpdateDate
     if (data.UpdateDate) {
       return formatTimeUTC8(data.UpdateDate);
     }
@@ -501,15 +604,12 @@
 
   function convertToUTC8(dateStr) {
     if (!dateStr) return '';
-    // Parse as UTC
     let d;
     if (dateStr.endsWith('Z')) {
       d = new Date(dateStr);
     } else {
-      // Treat as UTC if no timezone info
       d = new Date(dateStr + 'Z');
     }
-    // Add 8 hours
     d = new Date(d.getTime() + 8 * 60 * 60 * 1000);
     return formatDateTime(d);
   }
@@ -539,9 +639,7 @@
   }
 
   function handleTimeInput(el, nextId) {
-    // Only allow digits
     el.value = el.value.replace(/\D/g, '');
-    // Auto-jump to next field when 2 digits entered
     if (el.value.length === 2 && nextId) {
       document.getElementById(nextId).focus();
     }
@@ -549,7 +647,6 @@
 
   function fillNowTime() {
     const now = new Date();
-    // UTC+8
     const utc8 = new Date(now.getTime() + 8 * 60 * 60 * 1000);
     document.getElementById('requestHour').value = String(utc8.getUTCHours()).padStart(2, '0');
     document.getElementById('requestMinuteInput').value = String(utc8.getUTCMinutes()).padStart(2, '0');
@@ -598,8 +695,14 @@
     updateAllPreview();
   }
 
+  function getCheckedRows() {
+    return allRows.filter((_, i) => checkedSet.has(i));
+  }
+
   function buildAllText() {
-    const tableLines = extractedRows.map(r =>
+    const checked = getCheckedRows();
+    if (checked.length === 0) return '(No selections checked)';
+    const tableLines = checked.map(r =>
       `${r.sport}\t${r.league}\t${r.prematchLive}\t${r.startDate}\t${r.eventName}`
     );
     const requestTime = getRequestTime();
@@ -610,13 +713,14 @@
   }
 
   function updateAllPreview() {
-    if (extractedRows.length === 0) return;
+    if (allRows.length === 0) return;
     document.getElementById('allPreview').textContent = buildAllText();
   }
 
   function copyAll() {
-    if (extractedRows.length === 0) {
-      showToast('No data to copy', '#e94560');
+    const checked = getCheckedRows();
+    if (checked.length === 0) {
+      showToast('Please check at least one selection', '#e94560');
       return;
     }
     const reason = getSelectedReason();
@@ -624,14 +728,13 @@
       showToast('Please select or enter a reason', '#f5a623');
       return;
     }
-    copyToClipboard(buildAllText(), 'All data copied!');
+    copyToClipboard(buildAllText(), `Copied ${checked.length} selection(s)!`);
   }
 
   function copyToClipboard(text, msg) {
     navigator.clipboard.writeText(text).then(() => {
       showToast(msg || 'Copied!', '#4caf50');
     }).catch(() => {
-      // Fallback
       const ta = document.createElement('textarea');
       ta.value = text;
       document.body.appendChild(ta);
@@ -653,7 +756,11 @@
     document.getElementById('customReason').style.display = 'none';
     document.getElementById('customReason').value = '';
     document.getElementById('doneTimeDisplay').textContent = '--:--';
-    extractedRows = [];
+    document.getElementById('checkedCount').textContent = '0 selected';
+    document.getElementById('selectAll').checked = false;
+    document.getElementById('selectAll').indeterminate = false;
+    allRows = [];
+    checkedSet = new Set();
     doneTimeStr = '';
   }
 
