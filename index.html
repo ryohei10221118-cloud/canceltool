@@ -287,10 +287,14 @@
       font-weight: 600;
     }
     .tag-status-0 { background: #0f3460; color: #00d4ff; }
-    .tag-status-1 { background: #2e7d32; color: #fff; }
-    .tag-status-2 { background: #f5a623; color: #1a1a2e; }
-    .tag-status-3 { background: #9c27b0; color: #fff; }
+    .tag-status-1 { background: #c62828; color: #fff; }
+    .tag-status-2 { background: #2e7d32; color: #fff; }
+    .tag-status-3 { background: #757575; color: #fff; }
     .tag-status-4 { background: #e94560; color: #fff; }
+    .tag-status-15 { background: #b71c1c; color: #fff; }
+    .tag-status-16 { background: #e65100; color: #fff; }
+    .tag-status-17 { background: #558b2f; color: #fff; }
+    .tag-status-32 { background: #f5a623; color: #1a1a2e; }
 
     /* Checkbox */
     .data-table input[type="checkbox"] {
@@ -426,11 +430,15 @@
   let doneTimeStr = '';
 
   const STATUS_LABELS = {
-    0: 'Pending',
-    1: 'Active',
-    2: 'Settled',
-    3: 'Void',
-    4: 'Cancelled'
+    0: 'Opened',
+    1: 'Lost',
+    2: 'Won',
+    3: 'Draw',
+    4: 'Canceled',
+    15: 'Declined',
+    16: 'Half Lost',
+    17: 'Half Won',
+    32: 'Cashout'
   };
 
   function getRowKey(sel) {
