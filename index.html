@@ -428,6 +428,7 @@
   let allRows = [];       // All selections data
   let checkedSet = new Set(); // Indices of checked rows (keyed by EventName+LeagueName for re-extract matching)
   let doneTimeStr = '';
+  let isFirstExtract = true; // Track if this is the first extract (to auto-fill request time)
 
   const STATUS_LABELS = {
     0: 'Opened',
@@ -473,7 +474,13 @@
       if (checkedSet.has(i)) prevCheckedKeys.add(r.key);
     });
 
-    // Extract done time
+    // First extract: auto-fill request time with current time (GMT+8)
+    if (isFirstExtract) {
+      fillNowTime();
+      isFirstExtract = false;
+    }
+
+    // Extract done time from JSON
     doneTimeStr = extractDoneTime(data);
 
     // Build ticket info bar
@@ -770,6 +777,7 @@
     allRows = [];
     checkedSet = new Set();
     doneTimeStr = '';
+    isFirstExtract = true;
   }
 
   function showToast(msg, color) {
