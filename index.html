@@ -85,6 +85,11 @@
       border-radius: 4px;
     }
     .btn-now:hover { background: #388e3c; }
+    .btn-update {
+      background: #ff9800;
+      color: #1a1a2e;
+    }
+    .btn-update:hover { background: #fb8c00; }
     .btn-clear {
       background: #444;
       color: #e0e0e0;
@@ -345,6 +350,7 @@
     <textarea id="jsonInput" placeholder="Paste the full ticket JSON here..."></textarea>
     <div class="btn-row">
       <button class="btn-extract" onclick="extractData()">Extract</button>
+      <button class="btn-update" onclick="pasteAndUpdate()" id="btnUpdate" style="display:none;">Paste & Update</button>
       <button class="btn-clear" onclick="clearAll()">Clear</button>
     </div>
   </div>
@@ -447,6 +453,16 @@
     return `${sel.EventName || ''}||${sel.LeagueName || ''}||${sel.SportName || ''}`;
   }
 
+  async function pasteAndUpdate() {
+    try {
+      const text = await navigator.clipboard.readText();
+      document.getElementById('jsonInput').value = text;
+      extractData();
+    } catch (e) {
+      showToast('無法讀取剪貼簿，請手動貼上', '#e94560');
+    }
+  }
+
   function extractData() {
     const raw = document.getElementById('jsonInput').value.trim();
     if (!raw) {
@@ -478,6 +494,7 @@
     if (isFirstExtract) {
       fillNowTime();
       isFirstExtract = false;
+      document.getElementById('btnUpdate').style.display = '';
     }
 
     // Extract done time from JSON
@@ -779,6 +796,7 @@
     checkedSet = new Set();
     doneTimeStr = '';
     isFirstExtract = true;
+    document.getElementById('btnUpdate').style.display = 'none';
   }
 
   function showToast(msg, color) {
