@@ -761,6 +761,7 @@
   }
 
   function clearAll() {
+    if (allRows.length > 0 && !confirm('確定要清除所有資料嗎？')) return;
     document.getElementById('jsonInput').value = '';
     document.getElementById('resultSection').classList.remove('active');
     document.getElementById('dataBody').innerHTML = '';
