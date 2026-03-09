@@ -373,6 +373,7 @@
             <th>Prematch/Live</th>
             <th>StartEventDate (UTC+8)</th>
             <th>EventName</th>
+            <th>Market</th>
           </tr>
         </thead>
         <tbody id="dataBody"></tbody>
@@ -523,10 +524,11 @@
       const prematchLive = sel.IsLive ? 'Live' : 'Prematch';
       const startDate = convertToUTC8(sel.StartEventDate);
       const eventName = sel.EventName || '';
+      const marketName = sel.MarketTypeName || '';
       const status = sel.SelectionStatus;
       const key = getRowKey(sel);
 
-      allRows.push({ sport, league, prematchLive, startDate, eventName, status, key });
+      allRows.push({ sport, league, prematchLive, startDate, eventName, marketName, status, key });
 
       // Restore checked state from previous extract
       const shouldCheck = prevCheckedKeys.has(key);
@@ -544,7 +546,8 @@
         `<td class="overflow-cell" title="${league}">${league}</td>` +
         `<td><span class="${tagClass}">${prematchLive}</span></td>` +
         `<td>${startDate}</td>` +
-        `<td class="overflow-cell" title="${eventName}">${eventName}</td>`;
+        `<td class="overflow-cell" title="${eventName}">${eventName}</td>` +
+        `<td class="overflow-cell" title="${marketName}">${marketName}</td>`;
       tbody.appendChild(tr);
     });
 
@@ -735,12 +738,12 @@
     const checked = getCheckedRows();
     if (checked.length === 0) return '(No selections checked)';
     const tableLines = checked.map(r =>
-      `${r.sport}\t${r.league}\t${r.prematchLive}\t${r.startDate}\t${r.eventName}`
+      `${r.sport}\t${r.league}\t${r.prematchLive}\t${r.startDate}\t${r.eventName}\t${r.marketName}`
     );
     const requestTime = getRequestTime();
     const reason = getSelectedReason() || '________________';
     const done = doneTimeStr || '__:__';
-    const note = `${requestTime} pls cancel (${reason})\n${done} done`;
+    const note = `${requestTime} pls cancel (${reason})\n${done} Done as requested`;
     return tableLines.join('\n') + '\n\n' + note;
   }
 
