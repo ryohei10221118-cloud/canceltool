@@ -420,12 +420,23 @@
         <span class="done-time" id="doneTimeDisplay">--:--</span>
         <span style="color:#aaa;">done</span>
       </div>
+      <div class="note-row">
+        <label>Group Name:</label>
+        <input type="text" id="groupName" placeholder="e.g. dg9-sbz" oninput="updateAllPreview();">
+      </div>
     </div>
 
-    <div class="btn-row" style="margin-top: 16px;">
+    <div class="btn-row" style="margin-top: 16px; flex-wrap: wrap;">
       <button class="btn-copy" onclick="copyAll()">Copy All</button>
+      <button class="btn-copy" onclick="copyFirstReply()" style="background:#7e57c2;">Copy First Reply</button>
+      <button class="btn-copy" onclick="copyFinalReply()" style="background:#26a69a;">Copy Final Reply</button>
     </div>
+    <div class="section-title" style="margin-top: 16px; font-size: 0.95rem;">Excel Preview</div>
     <div class="preview-box" id="allPreview"></div>
+    <div class="section-title" style="margin-top: 12px; font-size: 0.95rem;">First Reply Preview</div>
+    <div class="preview-box" id="firstReplyPreview"></div>
+    <div class="section-title" style="margin-top: 12px; font-size: 0.95rem;">Final Reply Preview</div>
+    <div class="preview-box" id="finalReplyPreview"></div>
   </div>
 </div>
 
@@ -436,6 +447,7 @@
   let checkedSet = new Set(); // Indices of checked rows (keyed by EventName+LeagueName for re-extract matching)
   let doneTimeStr = '';
   let isFirstExtract = true; // Track if this is the first extract (to auto-fill request time)
+  let currentTicketId = '';  // TicketId from current extracted JSON
 
   const STATUS_LABELS = {
     0: 'Opened',
@@ -504,6 +516,7 @@
     // Build ticket info bar
     const ticketIdMatch = raw.match(/"TicketId"\s*:\s*(\d+)/);
     const ticketId = ticketIdMatch ? ticketIdMatch[1] : 'N/A';
+    currentTicketId = ticketId;
     const betType = data.Bets?.[0]?.Name || 'N/A';
     const totalSelections = selections.length;
 
@@ -747,9 +760,38 @@
     return tableLines.join('\n') + '\n\n' + note;
   }
 
+  function buildFirstReply() {
+    const checked = getCheckedRows();
+    const ticketId = currentTicketId || '________';
+    const groupName = document.getElementById('groupName').value.trim() || '________';
+    const eventLines = checked.length > 0
+      ? checked.map(r => r.eventName).join('\n')
+      : '(No selections checked)';
+    return `${ticketId}\n${eventLines}\npls cancel the bet, op request\n${groupName}`;
+  }
+
+  function buildFinalReply() {
+    const ticketId = currentTicketId || '________';
+    const checked = getCheckedRows();
+    const eventLines = checked.length > 0
+      ? checked.map(r => r.eventName).join('\n')
+      : '(No selections checked)';
+    const header = `${ticketId}\n${eventLines}`;
+
+    // Method A: partial vs full cancel detection
+    const isFullCancel = allRows.length > 0 && checkedSet.size === allRows.length;
+    const partialMsg = '기다려 주셔서 감사합니다. 라인이 취소되었고 베팅이 정산되었습니다. BO는 업데이트되는 데 5-10분이 소요됩니다. 그 후에 다시 확인해 주시기 바랍니다. 감사합니다. - Sunny';
+    const fullMsg = '기다려 주셔서 감사합니다. 베팅이 취소되었지만 BO가 업데이트되는 데 5-10분 정도 소요됩니다. 그 후에 다시 확인해 주시기 바랍니다. 감사합니다. - Sunny';
+    const body = isFullCancel ? fullMsg : partialMsg;
+
+    return `${header}\n\n${body}`;
+  }
+
   function updateAllPreview() {
     if (allRows.length === 0) return;
     document.getElementById('allPreview').textContent = buildAllText();
+    document.getElementById('firstReplyPreview').textContent = buildFirstReply();
+    document.getElementById('finalReplyPreview').textContent = buildFinalReply();
   }
 
   function copyAll() {
@@ -764,6 +806,38 @@
       return;
     }
     copyToClipboard(buildAllText(), `Copied ${checked.length} selection(s)!`);
+  }
+
+  function copyFirstReply() {
+    const checked = getCheckedRows();
+    if (checked.length === 0) {
+      showToast('Please check at least one selection', '#e94560');
+      return;
+    }
+    if (!currentTicketId || currentTicketId === 'N/A') {
+      showToast('Ticket ID not found', '#e94560');
+      return;
+    }
+    const groupName = document.getElementById('groupName').value.trim();
+    if (!groupName) {
+      showToast('Please enter a group name', '#f5a623');
+      document.getElementById('groupName').focus();
+      return;
+    }
+    copyToClipboard(buildFirstReply(), 'First reply copied!');
+  }
+
+  function copyFinalReply() {
+    const checked = getCheckedRows();
+    if (checked.length === 0) {
+      showToast('Please check at least one selection', '#e94560');
+      return;
+    }
+    if (!currentTicketId || currentTicketId === 'N/A') {
+      showToast('Ticket ID not found', '#e94560');
+      return;
+    }
+    copyToClipboard(buildFinalReply(), 'Final reply copied!');
   }
 
   function copyToClipboard(text, msg) {
@@ -786,18 +860,22 @@
     document.getElementById('resultSection').classList.remove('active');
     document.getElementById('dataBody').innerHTML = '';
     document.getElementById('allPreview').textContent = '';
+    document.getElementById('firstReplyPreview').textContent = '';
+    document.getElementById('finalReplyPreview').textContent = '';
     document.getElementById('requestHour').value = '';
     document.getElementById('requestMinuteInput').value = '';
     document.getElementById('reasonSelect').value = document.getElementById('reasonSelect').options[0].value;
     document.getElementById('customReason').style.display = 'none';
     document.getElementById('customReason').value = '';
     document.getElementById('doneTimeDisplay').textContent = '--:--';
+    document.getElementById('groupName').value = '';
     document.getElementById('checkedCount').textContent = '0 selected';
     document.getElementById('selectAll').checked = false;
     document.getElementById('selectAll').indeterminate = false;
     allRows = [];
     checkedSet = new Set();
     doneTimeStr = '';
+    currentTicketId = '';
     isFirstExtract = true;
     document.getElementById('btnUpdate').style.display = 'none';
   }
