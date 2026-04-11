@@ -767,7 +767,10 @@
     const eventLines = checked.length > 0
       ? checked.map(r => r.eventName).join('\n')
       : '(No selections checked)';
-    return `${ticketId}\n${eventLines}\npls cancel the bet, op request\n${groupName}`;
+    // Method A: partial vs full cancel detection (same as Final Reply)
+    const isFullCancel = allRows.length > 0 && checkedSet.size === allRows.length;
+    const cancelPhrase = isFullCancel ? 'pls cancel the bet, op request' : 'pls cancel the selection, op request';
+    return `${ticketId}\n${eventLines}\n${cancelPhrase}\n${groupName}`;
   }
 
   function buildFinalReply() {
