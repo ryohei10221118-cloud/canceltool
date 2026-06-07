@@ -764,7 +764,7 @@
     const ticketId = currentTicketId || '________';
     const prefix = `${todayDate}\t${groupName}\t${ticketId}`;
     const tableLines = checked.map((r, i) =>
-      (i === 0 ? prefix : `\t\t`) + `\t\t${r.sport}\t${r.league}\t${r.prematchLive}\t${r.startDate}\t${r.eventName}\t${r.marketName}`
+      (i === 0 ? prefix : `\t\t`) + `\t${r.sport}\t${r.league}\t${r.prematchLive}\t${r.startDate}\t${r.eventName}\t${r.marketName}`
     );
     const requestTime = getRequestTime();
     const reason = getSelectedReason() || '________________';
