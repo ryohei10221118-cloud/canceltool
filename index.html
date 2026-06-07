@@ -905,6 +905,11 @@
     setTimeout(() => t.classList.remove('show'), 2000);
   }
 
+  // Auto-extract on paste
+  document.getElementById('jsonInput').addEventListener('paste', () => {
+    setTimeout(extractData, 0);
+  });
+
   // Live preview updates
   document.getElementById('customReason').addEventListener('input', updateAllPreview);
   document.getElementById('reasonSelect').addEventListener('change', updateAllPreview);
