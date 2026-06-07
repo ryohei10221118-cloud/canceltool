@@ -762,15 +762,18 @@
     const todayDate = getTodayDateGMT8();
     const groupName = document.getElementById('groupName').value.trim() || '________';
     const ticketId = currentTicketId || '________';
-    const prefix = `${todayDate}\t${groupName}\t${ticketId}`;
-    const tableLines = checked.map((r, i) =>
-      (i === 0 ? prefix : `\t\t`) + `\t${r.sport}\t${r.league}\t${r.prematchLive}\t${r.startDate}\t${r.eventName}\t${r.marketName}`
-    );
     const requestTime = getRequestTime();
     const reason = getSelectedReason() || '________________';
     const done = doneTimeStr || '__:__';
-    const note = `${requestTime} pls cancel (${reason})\n${done} Done as requested`;
-    return tableLines.join('\n') + '\n\n' + note;
+    const noteContent = `${requestTime} pls cancel (${reason})\n${done} Done as requested`;
+    const noteCell = `"${noteContent.replace(/"/g, '""')}"`;
+    const prefix = `${todayDate}\t${groupName}\t${ticketId}`;
+    const tableLines = checked.map((r, i) => {
+      const data = `${r.sport}\t${r.league}\t${r.prematchLive}\t${r.startDate}\t${r.eventName}\t${r.marketName}`;
+      if (i === 0) return `${prefix}\t\t${data}\t${noteCell}`;
+      return `\t\t\t\t${data}`;
+    });
+    return tableLines.join('\n');
   }
 
   function buildFirstReply() {
