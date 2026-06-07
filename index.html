@@ -514,7 +514,7 @@
     doneTimeStr = extractDoneTime(data);
 
     // Build ticket info bar
-    const ticketIdMatch = raw.match(/"TicketId"\s*:\s*(\d+)/);
+    const ticketIdMatch = raw.match(/"SQLTicketId"\s*:\s*(\d+)/);
     const ticketId = ticketIdMatch ? ticketIdMatch[1] : 'N/A';
     currentTicketId = ticketId;
     const betType = data.Bets?.[0]?.Name || 'N/A';
