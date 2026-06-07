@@ -759,14 +759,20 @@
   function buildAllText() {
     const checked = getCheckedRows();
     if (checked.length === 0) return '(No selections checked)';
-    const tableLines = checked.map(r =>
-      `${r.sport}\t${r.league}\t${r.prematchLive}\t${r.startDate}\t${r.eventName}\t${r.marketName}`
-    );
+    const todayDate = getTodayDateGMT8();
+    const groupName = document.getElementById('groupName').value.trim() || '________';
+    const ticketId = currentTicketId || '________';
     const requestTime = getRequestTime();
     const reason = getSelectedReason() || '________________';
     const done = doneTimeStr || '__:__';
-    const note = `${requestTime} pls cancel (${reason})\n${done} Done as requested`;
-    return tableLines.join('\n') + '\n\n' + note;
+    const pad = '\t\t\t\t';
+    const dataLines = checked.map((r, i) => {
+      const row = `${r.sport}\t${r.league}\t${r.prematchLive}\t${r.startDate}\t${r.eventName}\t${r.marketName}`;
+      if (i === 0) return `${todayDate}\t${groupName}\t${ticketId}\t\t${row}`;
+      return `${pad}${row}`;
+    });
+    const note = `${pad}${requestTime} pls cancel (${reason})\n${pad}${done} Done as requested`;
+    return dataLines.join('\n') + '\n' + note;
   }
 
   function buildFirstReply() {
