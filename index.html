@@ -765,14 +765,13 @@
     const requestTime = getRequestTime();
     const reason = getSelectedReason() || '________________';
     const done = doneTimeStr || '__:__';
-    const pad = '\t\t\t\t';
-    const dataLines = checked.map((r, i) => {
-      const row = `${r.sport}\t${r.league}\t${r.prematchLive}\t${r.startDate}\t${r.eventName}\t${r.marketName}`;
-      if (i === 0) return `${todayDate}\t${groupName}\t${ticketId}\t\t${row}`;
-      return `${pad}${row}`;
-    });
-    const note = `${pad}${requestTime} pls cancel (${reason})\n${pad}${done} Done as requested`;
-    return dataLines.join('\n') + '\n' + note;
+    const dataLines = checked.map(r =>
+      `${r.sport}\t${r.league}\t${r.prematchLive}\t${r.startDate}\t${r.eventName}\t${r.marketName}`
+    );
+    const note = `${requestTime} pls cancel (${reason})\n${done} Done as requested`;
+    const cellContent = dataLines.join('\n') + '\n\n' + note;
+    const escaped = cellContent.replace(/"/g, '""');
+    return `${todayDate}\t${groupName}\t${ticketId}\t\t"${escaped}"`;
   }
 
   function buildFirstReply() {
