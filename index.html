@@ -503,12 +503,7 @@
       if (checkedSet.has(i)) prevCheckedKeys.add(r.key);
     });
 
-    // First extract: auto-fill request time with current time (GMT+8)
-    if (isFirstExtract) {
-      fillNowTime();
-      isFirstExtract = false;
-      document.getElementById('btnUpdate').style.display = '';
-    }
+    document.getElementById('btnUpdate').style.display = '';
 
     // Extract done time from JSON
     doneTimeStr = extractDoneTime(data);
@@ -905,9 +900,9 @@
     setTimeout(() => t.classList.remove('show'), 2000);
   }
 
-  // Auto-extract on paste
+  // Auto-extract on paste, always capture current time as Request Time
   document.getElementById('jsonInput').addEventListener('paste', () => {
-    setTimeout(extractData, 0);
+    setTimeout(() => { fillNowTime(); extractData(); }, 0);
   });
 
   // Live preview updates
