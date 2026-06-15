@@ -337,6 +337,63 @@
     }
     .ticket-bar span { color: #aaa; }
     .ticket-bar strong { color: #00d4ff; }
+
+    /* History Panel */
+    .history-panel {
+      display: none;
+      background: #16213e;
+      border: 1px solid #0f3460;
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 20px;
+    }
+    .history-panel.active { display: block; }
+    .history-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      background: #0a0a1a;
+      border: 1px solid #0f3460;
+      border-radius: 6px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+    .history-item:last-child { margin-bottom: 0; }
+    .history-time { color: #aaa; font-size: 12px; min-width: 90px; }
+    .history-id { color: #00d4ff; font-size: 13px; font-family: 'Courier New', monospace; flex: 1; min-width: 150px; overflow: hidden; text-overflow: ellipsis; }
+    .history-count { color: #aaa; font-size: 12px; white-space: nowrap; }
+    .btn-restore {
+      background: #0f3460;
+      color: #00d4ff;
+      padding: 4px 14px;
+      font-size: 12px;
+      border-radius: 4px;
+    }
+    .btn-restore:hover { background: #1a4a80; }
+    .btn-delete-history {
+      background: none;
+      color: #666;
+      padding: 4px 8px;
+      font-size: 14px;
+      border-radius: 4px;
+    }
+    .btn-delete-history:hover { color: #e94560; }
+    .btn-history {
+      background: #0f3460;
+      color: #00d4ff;
+    }
+    .btn-history:hover { background: #1a4a80; }
+    .btn-clear-history {
+      background: #e94560;
+      color: #fff;
+      padding: 6px 16px;
+      font-size: 12px;
+      border-radius: 4px;
+      margin-bottom: 12px;
+    }
+    .btn-clear-history:hover { background: #c73e54; }
+    .history-empty { color: #666; font-size: 13px; text-align: center; padding: 20px; }
   </style>
 </head>
 <body>
@@ -352,7 +409,17 @@
       <button class="btn-extract" onclick="extractData()">Extract</button>
       <button class="btn-update" onclick="pasteAndUpdate()" id="btnUpdate" style="display:none;">Paste & Update</button>
       <button class="btn-clear" onclick="clearAll()">Clear</button>
+      <button class="btn-history" onclick="toggleHistory()">History</button>
     </div>
+  </div>
+
+  <!-- History -->
+  <div class="history-panel" id="historyPanel">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <div class="section-title" style="margin:0;">Recent Records (max 5)</div>
+      <button class="btn-clear-history" onclick="clearHistory()">Clear All</button>
+    </div>
+    <div id="historyList"></div>
   </div>
 
   <!-- Result -->
@@ -590,7 +657,10 @@
 
     // Show result section
     document.getElementById('resultSection').classList.add('active');
-    showToast(`Extracted ${totalSelections} selection(s)`, '#4caf50');
+    showToast(`Extracted ${allRows.length} selection(s)`, '#4caf50');
+
+    // Save to history
+    saveToHistory();
   }
 
   function handleRowCheck(cb) {
@@ -909,6 +979,113 @@
     currentTicketId = '';
     isFirstExtract = true;
     document.getElementById('btnUpdate').style.display = 'none';
+  }
+
+  // --- History ---
+  const MAX_HISTORY = 5;
+
+  function getHistory() {
+    try { return JSON.parse(localStorage.getItem('cancelToolHistory') || '[]'); }
+    catch { return []; }
+  }
+
+  function saveHistory(list) {
+    localStorage.setItem('cancelToolHistory', JSON.stringify(list));
+  }
+
+  function saveToHistory() {
+    if (!currentTicketId || currentTicketId === 'N/A') return;
+    const raw = document.getElementById('jsonInput').value.trim();
+    let history = getHistory();
+    history = history.filter(h => h.ticketId !== currentTicketId);
+    const now = new Date(Date.now() + 8 * 60 * 60 * 1000);
+    const ts = `${String(now.getUTCMonth()+1).padStart(2,'0')}/${String(now.getUTCDate()).padStart(2,'0')} ${String(now.getUTCHours()).padStart(2,'0')}:${String(now.getUTCMinutes()).padStart(2,'0')}`;
+    history.unshift({
+      ticketId: currentTicketId,
+      rawJson: raw,
+      timestamp: ts,
+      count: allRows.length,
+      requestTime: getRequestTime(),
+      groupName: document.getElementById('groupName').value.trim(),
+      reason: getSelectedReason(),
+      checkedKeys: Array.from(checkedSet).map(i => allRows[i]?.key).filter(Boolean)
+    });
+    if (history.length > MAX_HISTORY) history = history.slice(0, MAX_HISTORY);
+    saveHistory(history);
+    renderHistory();
+  }
+
+  function toggleHistory() {
+    const panel = document.getElementById('historyPanel');
+    panel.classList.toggle('active');
+    if (panel.classList.contains('active')) renderHistory();
+  }
+
+  function renderHistory() {
+    const list = document.getElementById('historyList');
+    const history = getHistory();
+    if (history.length === 0) {
+      list.innerHTML = '<div class="history-empty">No records</div>';
+      return;
+    }
+    list.innerHTML = history.map((h, i) =>
+      `<div class="history-item">
+        <span class="history-time">${h.timestamp}</span>
+        <span class="history-id">${h.ticketId}</span>
+        <span class="history-count">${h.count} sel</span>
+        <button class="btn-restore" onclick="restoreHistory(${i})">Restore</button>
+        <button class="btn-delete-history" onclick="deleteHistory(${i})">✕</button>
+      </div>`
+    ).join('');
+  }
+
+  function restoreHistory(index) {
+    const history = getHistory();
+    const entry = history[index];
+    if (!entry) return;
+    document.getElementById('jsonInput').value = entry.rawJson;
+    extractData();
+    if (entry.requestTime && entry.requestTime !== '__:__') {
+      const [h, m] = entry.requestTime.split(':');
+      document.getElementById('requestHour').value = h;
+      document.getElementById('requestMinuteInput').value = m;
+    }
+    if (entry.groupName) document.getElementById('groupName').value = entry.groupName;
+    if (entry.reason) {
+      const sel = document.getElementById('reasonSelect');
+      const match = Array.from(sel.options).find(o => o.value === entry.reason);
+      if (match) { sel.value = entry.reason; }
+      else { sel.value = '__custom__'; document.getElementById('customReason').value = entry.reason; document.getElementById('customReason').style.display = 'block'; }
+    }
+    if (entry.checkedKeys && entry.checkedKeys.length > 0) {
+      const keySet = new Set(entry.checkedKeys);
+      checkedSet = new Set();
+      allRows.forEach((r, i) => { if (keySet.has(r.key)) checkedSet.add(i); });
+      document.querySelectorAll('#dataBody input[type="checkbox"]').forEach(cb => {
+        const idx = parseInt(cb.dataset.idx);
+        const tr = cb.closest('tr');
+        if (checkedSet.has(idx)) { cb.checked = true; tr.classList.add('row-checked'); }
+        else { cb.checked = false; tr.classList.remove('row-checked'); }
+      });
+      updateSelectAllState();
+      updateCheckedCount();
+    }
+    updateAllPreview();
+    document.getElementById('historyPanel').classList.remove('active');
+    showToast('Restored!', '#4caf50');
+  }
+
+  function deleteHistory(index) {
+    let history = getHistory();
+    history.splice(index, 1);
+    saveHistory(history);
+    renderHistory();
+  }
+
+  function clearHistory() {
+    if (!confirm('Clear all history?')) return;
+    saveHistory([]);
+    renderHistory();
   }
 
   function showToast(msg, color) {
