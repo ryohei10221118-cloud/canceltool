@@ -659,8 +659,8 @@
     document.getElementById('resultSection').classList.add('active');
     showToast(`Extracted ${allRows.length} selection(s)`, '#4caf50');
 
-    // Save to history
-    saveToHistory();
+    // Save to history (delayed so fillNowTime/restoreHistory finish first)
+    setTimeout(saveToHistory, 0);
   }
 
   function handleRowCheck(cb) {
