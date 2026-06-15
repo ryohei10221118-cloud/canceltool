@@ -518,20 +518,17 @@
     const ticketId = ticketIdMatch ? ticketIdMatch[1] : 'N/A';
     currentTicketId = ticketId;
     const betType = data.Bets?.[0]?.Name || 'N/A';
-    const totalSelections = selections.length;
-
-    document.getElementById('ticketBar').innerHTML =
-      `<span>Ticket ID: <strong>${ticketId}</strong></span>` +
-      `<span>Type: <strong>${betType}</strong></span>` +
-      `<span>Total Selections: <strong>${totalSelections}</strong></span>`;
-
-    // Build table rows for ALL selections
+    // Build table rows for ALL selections (skip virtual combined selections)
     allRows = [];
     checkedSet = new Set();
     const tbody = document.getElementById('dataBody');
     tbody.innerHTML = '';
+    let rowIdx = 0;
 
-    selections.forEach((sel, idx) => {
+    selections.forEach((sel) => {
+      const selId = sel.SelectionId || '';
+      if (selId.startsWith('0VS')) return;
+
       const sport = sel.SportName || '';
       const league = sel.LeagueName || '';
       const prematchLive = sel.IsLive ? 'Live' : 'Prematch';
@@ -540,6 +537,7 @@
       const marketName = sel.MarketTypeName || '';
       const status = sel.SelectionStatus;
       const key = getRowKey(sel);
+      const idx = rowIdx++;
 
       allRows.push({ sport, league, prematchLive, startDate, eventName, marketName, status, key });
 
@@ -563,6 +561,11 @@
         `<td class="overflow-cell" title="${marketName}">${marketName}</td>`;
       tbody.appendChild(tr);
     });
+
+    document.getElementById('ticketBar').innerHTML =
+      `<span>Ticket ID: <strong>${ticketId}</strong></span>` +
+      `<span>Type: <strong>${betType}</strong></span>` +
+      `<span>Total Selections: <strong>${allRows.length}</strong></span>`;
 
     // Update select-all checkbox state
     updateSelectAllState();
