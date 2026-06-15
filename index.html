@@ -525,9 +525,20 @@
     tbody.innerHTML = '';
     let rowIdx = 0;
 
+    // Find SelectionIndex values that are merged into 0VS combined selections
+    const mergedIndices = new Set();
+    selections.forEach(sel => {
+      const selId = sel.SelectionId || '';
+      if (selId.startsWith('0VS')) {
+        const parts = selId.substring(3).split('|');
+        parts.forEach(p => { const n = parseInt(p); if (!isNaN(n)) mergedIndices.add(n); });
+      }
+    });
+
     selections.forEach((sel) => {
       const selId = sel.SelectionId || '';
-      if (selId.startsWith('0VS')) return;
+      // Skip individual legs that are merged into a combined selection
+      if (mergedIndices.size > 0 && !selId.startsWith('0VS') && mergedIndices.has(sel.SelectionIndex)) return;
 
       const sport = sel.SportName || '';
       const league = sel.LeagueName || '';
