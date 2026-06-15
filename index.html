@@ -469,8 +469,13 @@
   async function pasteAndUpdate() {
     try {
       const text = await navigator.clipboard.readText();
+      const prevId = currentTicketId;
       document.getElementById('jsonInput').value = text;
       extractData();
+      if (currentTicketId !== prevId) {
+        fillNowTime();
+        updateAllPreview();
+      }
     } catch (e) {
       showToast('無法讀取剪貼簿，請手動貼上', '#e94560');
     }
@@ -503,35 +508,38 @@
       if (checkedSet.has(i)) prevCheckedKeys.add(r.key);
     });
 
-    // First extract: auto-fill request time with current time (GMT+8)
-    if (isFirstExtract) {
-      fillNowTime();
-      isFirstExtract = false;
-      document.getElementById('btnUpdate').style.display = '';
-    }
+    document.getElementById('btnUpdate').style.display = '';
 
     // Extract done time from JSON
     doneTimeStr = extractDoneTime(data);
 
     // Build ticket info bar
-    const ticketIdMatch = raw.match(/"TicketId"\s*:\s*(\d+)/);
+    const ticketIdMatch = raw.match(/"SQLTicketId"\s*:\s*(\d+)/);
     const ticketId = ticketIdMatch ? ticketIdMatch[1] : 'N/A';
     currentTicketId = ticketId;
     const betType = data.Bets?.[0]?.Name || 'N/A';
-    const totalSelections = selections.length;
-
-    document.getElementById('ticketBar').innerHTML =
-      `<span>Ticket ID: <strong>${ticketId}</strong></span>` +
-      `<span>Type: <strong>${betType}</strong></span>` +
-      `<span>Total Selections: <strong>${totalSelections}</strong></span>`;
-
-    // Build table rows for ALL selections
+    // Build table rows for ALL selections (skip virtual combined selections)
     allRows = [];
     checkedSet = new Set();
     const tbody = document.getElementById('dataBody');
     tbody.innerHTML = '';
+    let rowIdx = 0;
 
-    selections.forEach((sel, idx) => {
+    // Find SelectionIndex values that are merged into 0VS combined selections
+    const mergedIndices = new Set();
+    selections.forEach(sel => {
+      const selId = sel.SelectionId || '';
+      if (selId.startsWith('0VS')) {
+        const parts = selId.substring(3).split('|');
+        parts.forEach(p => { const n = parseInt(p); if (!isNaN(n)) mergedIndices.add(n); });
+      }
+    });
+
+    selections.forEach((sel) => {
+      const selId = sel.SelectionId || '';
+      // Skip individual legs that are merged into a combined selection
+      if (mergedIndices.size > 0 && !selId.startsWith('0VS') && mergedIndices.has(sel.SelectionIndex)) return;
+
       const sport = sel.SportName || '';
       const league = sel.LeagueName || '';
       const prematchLive = sel.IsLive ? 'Live' : 'Prematch';
@@ -540,6 +548,7 @@
       const marketName = sel.MarketTypeName || '';
       const status = sel.SelectionStatus;
       const key = getRowKey(sel);
+      const idx = rowIdx++;
 
       allRows.push({ sport, league, prematchLive, startDate, eventName, marketName, status, key });
 
@@ -563,6 +572,11 @@
         `<td class="overflow-cell" title="${marketName}">${marketName}</td>`;
       tbody.appendChild(tr);
     });
+
+    document.getElementById('ticketBar').innerHTML =
+      `<span>Ticket ID: <strong>${ticketId}</strong></span>` +
+      `<span>Type: <strong>${betType}</strong></span>` +
+      `<span>Total Selections: <strong>${allRows.length}</strong></span>`;
 
     // Update select-all checkbox state
     updateSelectAllState();
@@ -747,17 +761,31 @@
     return allRows.filter((_, i) => checkedSet.has(i));
   }
 
+  function getTodayDateGMT8() {
+    const now = new Date();
+    const utc8 = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+    const yyyy = utc8.getUTCFullYear();
+    const mm = String(utc8.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(utc8.getUTCDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
+
   function buildAllText() {
     const checked = getCheckedRows();
     if (checked.length === 0) return '(No selections checked)';
-    const tableLines = checked.map(r =>
-      `${r.sport}\t${r.league}\t${r.prematchLive}\t${r.startDate}\t${r.eventName}\t${r.marketName}`
-    );
+    const todayDate = getTodayDateGMT8();
+    const groupName = document.getElementById('groupName').value.trim() || '________';
+    const ticketId = currentTicketId || '________';
     const requestTime = getRequestTime();
     const reason = getSelectedReason() || '________________';
     const done = doneTimeStr || '__:__';
+    const dataLines = checked.map(r =>
+      `${r.sport}\t${r.league}\t${r.prematchLive}\t${r.startDate}\t${r.eventName}\t${r.marketName}`
+    );
     const note = `${requestTime} pls cancel (${reason})\n${done} Done as requested`;
-    return tableLines.join('\n') + '\n\n' + note;
+    const cellContent = dataLines.join('\n') + '\n\n' + note;
+    const escaped = cellContent.replace(/"/g, '""');
+    return `${todayDate}\t${groupName}\t${ticketId}\t\t"${escaped}"`;
   }
 
   function buildFirstReply() {
@@ -890,6 +918,18 @@
     t.classList.add('show');
     setTimeout(() => t.classList.remove('show'), 2000);
   }
+
+  // Auto-extract on paste, always capture current time as Request Time
+  document.getElementById('jsonInput').addEventListener('paste', () => {
+    setTimeout(() => {
+      const prevId = currentTicketId;
+      extractData();
+      if (currentTicketId !== prevId) {
+        fillNowTime();
+        updateAllPreview();
+      }
+    }, 0);
+  });
 
   // Live preview updates
   document.getElementById('customReason').addEventListener('input', updateAllPreview);
